@@ -1,0 +1,1043 @@
+<!-- public/sender.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Real-time WebRTC VLM Multi-Object Detection</title>
+  <style>
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: linear-gradient(120deg, #0f2027 0%, #2c5364 100%);
+      margin: 0;
+      padding: 0;
+      color: #fff;
+      min-height: 100vh;
+    }
+    .container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: transparent;
+    }
+    h3 {
+      color: #fff;
+      margin: 0;
+      font-size: 1.5rem;
+      text-align: center;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      background: rgba(20, 30, 40, 0.7);
+      backdrop-filter: blur(10px);
+      padding: 14px 0 10px 0;
+      border-radius: 0 0 18px 18px;
+      letter-spacing: 0.5px;
+    }
+    #videoContainer {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      background: #000;
+      object-fit: cover;
+      border: none;
+      outline: none;
+      display: block;
+    }
+    video::-webkit-media-controls {
+      display: none !important;
+    }
+    canvas {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 5;
+      max-width: 100vw;
+      max-height: 100vh;
+    }
+    #controls {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 18px 0 12px 0;
+      background: rgba(20, 30, 40, 0.92);
+      text-align: center;
+      backdrop-filter: blur(10px);
+      z-index: 10;
+      border-radius: 18px 18px 0 0;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.12);
+    }
+    button {
+      padding: 14px 22px;
+      margin: 6px 8px;
+      border: none;
+      border-radius: 22px;
+      background: linear-gradient(90deg, #36d1c4 0%, #5b86e5 100%);
+      color: white;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      min-width: 120px;
+      box-shadow: 0 2px 8px rgba(60,80,120,0.10);
+      transition: background 0.2s;
+    }
+    button:hover { background: linear-gradient(90deg, #5b86e5 0%, #36d1c4 100%); }
+    button:disabled { background: #666; cursor: not-allowed; }
+    button.danger { background: #FF3B30; }
+    button.danger:hover { background: #D70015; }
+    button.success { background: #34C759; }
+    button.success:hover { background: #248A3D; }
+    #status {
+      margin: 10px 0 0 0;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.10);
+      border-radius: 15px;
+      font-size: 1rem;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 2px 8px rgba(60,80,120,0.10);
+    }
+    #detectionInfo {
+      position: absolute;
+      top: 60px;
+      left: 10px;
+      right: 10px;
+      background: rgba(20, 30, 40, 0.85);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 14px 10px 10px 10px;
+      font-size: 13px;
+      z-index: 10;
+      max-height: 120px;
+      overflow-y: auto;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(60,80,120,0.10);
+    }
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      margin: 7px 0;
+    }
+    .object-list {
+      margin-top: 7px;
+      font-size: 12px;
+      color: #e0e0e0;
+    }
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #ffffff33;
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .success { background: rgba(52,199,89,0.3) !important; }
+    .error { background: rgba(255,59,48,0.3) !important; }
+    .warning { background: rgba(255,149,0,0.3) !important; }
+    .detecting { background: rgba(0,122,255,0.3) !important; }
+    @media (max-width: 600px) {
+      #detectionInfo { top: 44px; left: 4px; right: 4px; padding: 10px 4px; }
+      h3 { font-size: 1.1rem; padding: 10px 0 8px 0; }
+      #controls { padding: 10px 0 8px 0; }
+    }
+  </style>
+  </style>
+</head>
+<body>
+  <div class="container">
+  <h3>📱 Real-time WebRTC VLM<br>Multi-Object Detection</h3>
+    
+    <div id="videoContainer">
+      <video id="localVideo" autoplay muted playsinline></video>
+      <canvas id="overlay"></canvas>
+    </div>
+
+    <div id="detectionInfo" style="display:none;">
+      <div class="stats">
+        <span>Objects: <span id="objectCount">0</span></span>
+        <span>FPS: <span id="fps">0</span></span>
+        <span>Frames: <span id="frameCount">0</span></span>
+      </div>
+      <div class="object-list" id="objectsList">No objects detected</div>
+    </div>
+    
+    <div id="controls">
+      <button id="startCamera">📹 Start Camera</button>
+      <button id="startDetection" style="display:none;" class="success">🎯 Start Detection</button>
+      <button id="switchCamera" style="display:none;">🔄 Switch Camera</button>
+      <button id="stopDetection" style="display:none;" class="danger">⏹ Stop Detection</button>
+      <div id="status">📱 Ready to start mobile object detection</div>
+    </div>
+  </div>
+
+  <!-- TensorFlow.js + coco-ssd for object detection -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.20.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script>
+  console.log('🚀 SENDER SCRIPT STARTED!');
+  
+  // Immediate debugging
+  window.addEventListener('load', () => {
+    console.log('📱 Window load event fired!');
+  });
+  
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('📱 DOM content loaded!');
+  });
+  
+  console.log('🔍 Current URL:', window.location.href);
+  
+  const video = document.getElementById('localVideo');
+  const overlay = document.getElementById('overlay');
+  const ctx = overlay.getContext('2d');
+  
+  // Utility: Resize and compress video frame for backend inference
+  function getResizedFrameDataURL(targetW = 320, targetH = 240, quality = 0.6) {
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = targetW;
+    tempCanvas.height = targetH;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(video, 0, 0, targetW, targetH);
+    // JPEG is much smaller than PNG
+    return tempCanvas.toDataURL('image/jpeg', quality);
+  }
+  
+  let localStream = null;
+  let facingMode = 'environment'; // Start with back camera
+  let model = null;
+  let detecting = false;
+  let frameCount = 0;
+  let detectionCount = 0;
+  let lastFPSUpdate = Date.now();
+  let fpsCounter = 0;
+  let latestDetections = [];
+
+  async function startCamera() {
+    console.log('🔥 startCamera function called!');
+    const startBtn = document.getElementById('startCamera');
+    const status = document.getElementById('status');
+    
+    if (!startBtn) {
+      console.error('❌ Start button not found!');
+      return;
+    }
+    
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.error('❌ getUserMedia not supported!');
+      status.innerHTML = '❌ Camera not supported in this browser';
+      status.className = 'error';
+      return;
+    }
+    
+    try {
+      startBtn.disabled = true;
+      status.innerHTML = '<span class="loading"></span>Requesting camera access...';
+      status.className = '';
+      
+      console.log('📱 Requesting camera with facingMode:', facingMode);
+      
+      // Enhanced camera constraints for mobile
+      const constraints = {
+        video: {
+          facingMode: { ideal: facingMode },
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          frameRate: { ideal: 30, max: 60 }
+        },
+        audio: false
+      };
+      
+      localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = localStream;
+      
+      console.log('✅ Camera access granted');
+      console.log('📹 Stream details:', localStream.getVideoTracks()[0].getSettings());
+      
+      // Show camera info
+      const track = localStream.getVideoTracks()[0];
+      const settings = track.getSettings();
+      status.innerHTML = `✅ Camera active: ${settings.width}x${settings.height}`;
+      status.className = 'success';
+      
+      // ADD TRACKS TO PEER CONNECTION - CRITICAL FOR WEBRTC
+      localStream.getTracks().forEach(track => {
+        console.log('➕ Adding track to peer connection:', track.kind, track.label);
+        pc.addTrack(track, localStream);
+      });
+      
+      console.log('📡 All tracks added to peer connection');
+      console.log('📊 Peer connection state:', pc.connectionState);
+      console.log('📊 Signaling state:', pc.signalingState);
+      
+      // Wait a moment for tracks to be properly added
+      setTimeout(() => {
+        // Signal that sender is ready with tracks
+        socket.emit('sender-ready', { room });
+        console.log('📤 Sent sender-ready signal with tracks');
+      }, 500);
+      
+      // Start sending frame metadata for alignment
+      startFrameMetadata();
+      
+      // Wait for video to load
+      video.onloadedmetadata = () => {
+        console.log('📹 Video metadata loaded:', video.videoWidth, 'x', video.videoHeight);
+        setupCanvas();
+        
+        // Show controls
+        document.getElementById('startDetection').style.display = 'inline-block';
+        document.getElementById('switchCamera').style.display = 'inline-block';
+        startBtn.style.display = 'none';
+        
+        status.innerHTML = '✅ Camera ready! Click "Start Detection" to begin.';
+      };
+      
+    } catch (error) {
+      console.error('❌ Camera access failed:', error);
+      let errorMsg = 'Camera access failed';
+      
+      if (error.name === 'NotAllowedError') {
+        errorMsg = 'Camera permission denied. Please allow camera access.';
+      } else if (error.name === 'NotFoundError') {
+        errorMsg = 'No camera found on this device.';
+      } else if (error.name === 'NotSupportedError') {
+        errorMsg = 'Camera not supported in this browser.';
+      } else if (error.name === 'NotReadableError') {
+        errorMsg = 'Camera is already in use by another app.';
+      }
+      
+      status.innerHTML = `❌ ${errorMsg}`;
+      status.className = 'error';
+      startBtn.disabled = false;
+    }
+  }
+
+  function setupCanvas() {
+    // Get video dimensions
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+    
+    if (videoWidth === 0 || videoHeight === 0) {
+      console.log('⚠️ Video dimensions not ready yet');
+      return;
+    }
+    
+    // Calculate aspect ratios
+    const videoAspect = videoWidth / videoHeight;
+    const screenAspect = window.innerWidth / window.innerHeight;
+    
+    // Set canvas to match video dimensions
+    overlay.width = videoWidth;
+    overlay.height = videoHeight;
+    
+    // Calculate canvas display size to fit screen while maintaining aspect ratio
+    let displayWidth, displayHeight;
+    
+    if (videoAspect > screenAspect) {
+      // Video is wider than screen - fit to width
+      displayWidth = window.innerWidth;
+      displayHeight = window.innerWidth / videoAspect;
+    } else {
+      // Video is taller than screen - fit to height
+      displayHeight = window.innerHeight;
+      displayWidth = window.innerHeight * videoAspect;
+    }
+    
+    // Apply responsive sizing to canvas
+    overlay.style.width = `${displayWidth}px`;
+    overlay.style.height = `${displayHeight}px`;
+    
+    console.log('🎨 Canvas setup:', {
+      videoSize: `${videoWidth}x${videoHeight}`,
+      videoAspect: videoAspect.toFixed(2),
+      displaySize: `${displayWidth}x${displayHeight}`,
+      screenAspect: screenAspect.toFixed(2)
+    });
+  }
+
+  async function startDetection() {
+    if (detecting) return;
+    
+    const startBtn = document.getElementById('startDetection');
+    const status = document.getElementById('status');
+    const detectionInfo = document.getElementById('detectionInfo');
+    
+    try {
+      startBtn.disabled = true;
+      status.innerHTML = '<span class="loading"></span>Loading AI model...';
+      status.className = '';
+      
+      console.log('🧠 Loading COCO-SSD model...');
+      model = await cocoSsd.load();
+      console.log('✅ Model loaded successfully');
+      
+      detecting = true;
+      status.innerHTML = '🎯 AI Detection Active!';
+      status.className = 'detecting';
+      
+      // Show controls
+      document.getElementById('stopDetection').style.display = 'inline-block';
+      startBtn.style.display = 'none';
+      detectionInfo.style.display = 'block';
+      
+      // Start detection loop
+      runDetectionLoop();
+      
+    } catch (error) {
+      console.error('❌ Model loading failed:', error);
+      status.innerHTML = '❌ Failed to load AI model: ' + error.message;
+      status.className = 'error';
+      startBtn.disabled = false;
+    }
+  }
+
+  async function runDetectionLoop() {
+    console.log('🎯 Starting mobile detection loop...');
+    while (detecting) {
+      try {
+        // Check if video is ready
+        if (video.videoWidth === 0 || video.videoHeight === 0 || video.paused) { 
+          await new Promise(r => setTimeout(r, 100)); 
+          continue; 
+        }
+
+
+  // Resize, compress, and send frame to backend for inference automatically
+  const resizedDataURL = getResizedFrameDataURL(320, 240, 0.6); // 320x240, JPEG quality 0.6
+  const image_b64 = resizedDataURL.split(',')[1];
+  socket.emit('frame', { image_b64 });
+
+        // Run detection (local, for demo)
+        const startTime = Date.now();
+        const predictions = await model.detect(video);
+        const inferenceTime = Date.now() - startTime;
+
+        console.log('🔍 Detected:', predictions.length, 'objects in', inferenceTime, 'ms');
+
+        // Update counters
+        frameCount++;
+        fpsCounter++;
+        detectionCount = predictions.length;
+        latestDetections = predictions;
+
+        // Draw detections
+        drawDetections(predictions);
+
+        // Update UI stats
+        updateStats();
+
+        // Control frame rate (aim for ~10 FPS to balance performance and battery)
+        await new Promise(r => setTimeout(r, 100));
+
+      } catch (error) {
+        console.error('❌ Detection error:', error);
+        const status = document.getElementById('status');
+        status.innerHTML = '❌ Detection error: ' + error.message;
+        status.className = 'error';
+        break;
+      }
+    }
+    console.log('⏹ Detection loop stopped');
+  }
+
+  function drawDetections(predictions) {
+    // Clear canvas
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+    
+    if (predictions.length === 0) return;
+    
+    // Calculate scale factors for canvas to video mapping
+    const scaleX = overlay.width / video.videoWidth;
+    const scaleY = overlay.height / video.videoHeight;
+    
+    // Set drawing style
+    ctx.lineWidth = 3;
+    ctx.font = 'bold 16px Arial';
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur = 4;
+    
+    const colors = ['#FF3B30', '#FF9500', '#FFCC02', '#34C759', '#007AFF', '#5856D6', '#AF52DE', '#FF2D92'];
+    
+    predictions.forEach((prediction, index) => {
+      const [x, y, width, height] = prediction.bbox;
+      
+      // Scale coordinates to canvas size
+      const scaledX = x * scaleX;
+      const scaledY = y * scaleY;
+      const scaledWidth = width * scaleX;
+      const scaledHeight = height * scaleY;
+      
+      const color = colors[index % colors.length];
+      
+      // Draw bounding box
+      ctx.strokeStyle = color;
+      ctx.strokeRect(scaledX, scaledY, scaledWidth, scaledHeight);
+      
+      // Draw label
+      const label = `${prediction.class} ${(prediction.score * 100).toFixed(0)}%`;
+      const textMetrics = ctx.measureText(label);
+      const textWidth = textMetrics.width + 12;
+      const textHeight = 28;
+      
+      // Draw label background
+      ctx.fillStyle = color;
+      ctx.fillRect(scaledX, scaledY - textHeight, textWidth, textHeight);
+      
+      // Draw label text
+      ctx.fillStyle = 'white';
+      ctx.fillText(label, scaledX + 6, scaledY - 8);
+    });
+    
+    // Reset shadow
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+  }
+
+  function updateStats() {
+    document.getElementById('objectCount').textContent = detectionCount;
+    document.getElementById('frameCount').textContent = frameCount;
+    
+    // Calculate FPS
+    const now = Date.now();
+    if (now - lastFPSUpdate >= 1000) {
+      const fps = Math.round(fpsCounter * 1000 / (now - lastFPSUpdate));
+      document.getElementById('fps').textContent = fps;
+      fpsCounter = 0;
+      lastFPSUpdate = now;
+    }
+    
+    // Update object list
+    updateObjectsList();
+  }
+
+  function updateObjectsList() {
+    const objectsList = document.getElementById('objectsList');
+    
+    if (latestDetections.length === 0) {
+      objectsList.innerHTML = 'No objects detected';
+      return;
+    }
+    
+    // Group objects by class
+    const objectCounts = {};
+    latestDetections.forEach(det => {
+      const key = det.class;
+      if (!objectCounts[key]) {
+        objectCounts[key] = { count: 0, maxScore: 0 };
+      }
+      objectCounts[key].count++;
+      objectCounts[key].maxScore = Math.max(objectCounts[key].maxScore, det.score);
+    });
+    
+    // Create list
+    const items = Object.entries(objectCounts)
+      .sort((a, b) => b[1].maxScore - a[1].maxScore)
+      .map(([name, data]) => {
+        const confidence = (data.maxScore * 100).toFixed(0);
+        const plural = data.count > 1 ? 's' : '';
+        return `${data.count} ${name}${plural} (${confidence}%)`;
+      });
+    
+    objectsList.innerHTML = items.join(' • ');
+  }
+
+  async function switchCamera() {
+    if (!localStream) return;
+    
+    const status = document.getElementById('status');
+    
+    try {
+      status.innerHTML = '<span class="loading"></span>Switching camera...';
+      status.className = '';
+      
+      // Stop current stream
+      localStream.getTracks().forEach(track => track.stop());
+      
+      // Toggle facing mode
+      facingMode = facingMode === 'environment' ? 'user' : 'environment';
+      console.log('🔄 Switching to:', facingMode);
+      
+      // Restart camera
+      await startCamera();
+      
+    } catch (error) {
+      console.error('❌ Camera switch failed:', error);
+      status.innerHTML = '❌ Failed to switch camera';
+      status.className = 'error';
+    }
+  }
+
+  function stopDetection() {
+    detecting = false;
+    
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      localStream = null;
+      video.srcObject = null;
+    }
+    
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+    
+    // Reset UI
+    document.getElementById('startCamera').style.display = 'inline-block';
+    document.getElementById('startCamera').disabled = false;
+    document.getElementById('startDetection').style.display = 'none';
+    document.getElementById('switchCamera').style.display = 'none';
+    document.getElementById('stopDetection').style.display = 'none';
+    document.getElementById('detectionInfo').style.display = 'none';
+    
+    const status = document.getElementById('status');
+    status.innerHTML = '📱 Detection stopped';
+    status.className = '';
+    
+    console.log('⏹ Detection stopped');
+  }
+
+  // Event listeners
+  document.getElementById('startCamera').onclick = function() {
+    console.log('🔥 Start Camera button clicked!');
+    startCamera();
+  };
+  document.getElementById('startDetection').onclick = startDetection;
+  document.getElementById('switchCamera').onclick = switchCamera;
+  document.getElementById('stopDetection').onclick = stopDetection;
+
+  // Prevent screen sleep on mobile
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        console.log('📱 Screen wake lock acquired');
+      }
+    } catch (error) {
+      console.log('⚠️ Wake lock failed:', error);
+    }
+  }
+
+  // Auto-start camera on mobile for better UX - Multiple triggers to ensure it works
+  window.addEventListener('load', () => {
+    console.log('📱 Page loaded, initializing...');
+    setTimeout(() => {
+      console.log('📱 Delayed auto-start...');
+      requestWakeLock();
+      startCamera();
+    }, 1000);
+  });
+
+  // Also try when DOM is ready
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('📱 DOM ready, backup auto-start...');
+    setTimeout(() => {
+      if (!localStream) {
+        console.log('📱 No stream yet, trying auto-start...');
+        startCamera();
+      }
+    }, 1500);
+  });
+
+  // Handle orientation changes
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      if (video.videoWidth > 0) {
+        setupCanvas();
+      }
+    }, 500);
+  });
+  
+  // Handle window resize for responsive design
+  window.addEventListener('resize', () => {
+    setTimeout(() => {
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        setupCanvas();
+      }
+    }, 100);
+  });
+  
+  const url = new URL(location.href);
+  const room = url.searchParams.get('room') || 'room1';
+  console.log('🏠 Room extracted from URL:', room);
+
+  const socket = io();
+  console.log('🔌 Socket.IO client initialized');
+  // Enhanced WebRTC configuration for better compatibility
+  const pc = new RTCPeerConnection({
+    // Add STUN servers for better connectivity
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ],
+    iceCandidatePoolSize: 10,
+    iceTransportPolicy: 'all',
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require',
+    sdpSemantics: 'unified-plan'
+  });
+
+  let receiverId = null;
+  let frameCounter = 0;
+  let pendingIceCandidates = []; // Store ICE candidates until receiverId is set
+
+  // Function to modify SDP for better codec compatibility
+  function preferCompatibleCodecs(sdp) {
+    console.log('🔧 Optimizing SDP for codec compatibility...');
+    
+    // Prefer VP8 first (most compatible), then VP9, then H264
+    const codecPreferences = ['VP8/90000', 'VP9/90000', 'H264/90000'];
+    
+    let lines = sdp.split('\n');
+    let mLineIndex = -1;
+    let codecLines = [];
+    
+    // Find video m-line and collect codec lines
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].startsWith('m=video')) {
+        mLineIndex = i;
+        console.log('📺 Found video m-line:', lines[i]);
+      } else if (lines[i].startsWith('a=rtpmap:') && lines[i].includes('video')) {
+        codecLines.push({ index: i, line: lines[i] });
+      }
+    }
+    
+    if (mLineIndex !== -1 && codecLines.length > 0) {
+      // Extract payload types from m-line
+      const mLine = lines[mLineIndex];
+      const parts = mLine.split(' ');
+      const payloadTypes = parts.slice(3);
+      
+      console.log('🎬 Available payload types:', payloadTypes);
+      
+      // Reorder payload types based on codec preference
+      const reorderedTypes = [];
+      
+      codecPreferences.forEach(preferredCodec => {
+        codecLines.forEach(codecLine => {
+          if (codecLine.line.includes(preferredCodec)) {
+            const payloadType = codecLine.line.split(':')[1].split(' ')[0];
+            if (payloadTypes.includes(payloadType) && !reorderedTypes.includes(payloadType)) {
+              reorderedTypes.push(payloadType);
+              console.log(`✅ Prioritizing ${preferredCodec} (payload ${payloadType})`);
+            }
+          }
+        });
+      });
+      
+      // Add remaining payload types
+      payloadTypes.forEach(pt => {
+        if (!reorderedTypes.includes(pt)) {
+          reorderedTypes.push(pt);
+        }
+      });
+      
+      // Reconstruct m-line with reordered codecs
+      lines[mLineIndex] = parts.slice(0, 3).join(' ') + ' ' + reorderedTypes.join(' ');
+      console.log('🔄 Reordered m-line:', lines[mLineIndex]);
+    }
+    
+    const modifiedSDP = lines.join('\n');
+    console.log('✅ SDP optimization complete');
+    return modifiedSDP;
+  }
+
+  // Camera control functions are defined in the detection script above and will handle
+  // localStream, track adding, and UI updates. We avoid redeclaring them here.
+
+  function startFrameMetadata() {
+    if (!localStream) return;
+    
+    setInterval(() => {
+      if (localStream && receiverId) {
+        frameCounter++;
+        const meta = {
+          frame_id: frameCounter,
+          capture_ts: Date.now()
+        };
+        socket.emit('frame_meta', meta);
+      }
+    }, 100); // 10 FPS metadata
+  }
+
+  // Note: event listeners for camera/detection buttons are set earlier in the file
+
+  // Socket events
+  socket.on('connect', () => {
+    console.log('🎯 SOCKET CONNECTED! ID:', socket.id);
+    console.log('📤 About to emit join with room:', room, 'role: sender');
+    
+    socket.emit('join', { room, role: 'sender' });
+    console.log('✅ Join event emitted successfully');
+    
+    const status = document.getElementById('status');
+    if (status) {
+      status.innerHTML = '🔗 Connected to server. Starting camera...';
+      status.className = 'success';
+    }
+    
+    // Auto-start camera when connected
+    setTimeout(() => {
+      console.log('🚀 Auto-starting camera after socket connection...');
+      startCamera();
+    }, 500);
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('❌ Socket connection error:', error);
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log('🔌 Socket disconnected:', reason);
+  });
+
+  socket.on('peer-joined', ({id, role}) => {
+    if (role === 'receiver') {
+      console.log('💻 Receiver joined:', id);
+      receiverId = id;
+      sendPendingIceCandidates(); // Send any ICE candidates that were generated early
+      
+      const status = document.getElementById('status');
+      if (localStream) {
+        status.innerHTML = '💻 Laptop connected! Waiting for connection setup...';
+        status.className = 'success';
+        // Don't create offer here, let receiver initiate since it wants to receive
+      } else {
+        status.innerHTML = '💻 Laptop connected! Start camera to begin streaming.';
+        status.className = 'warning';
+      }
+    }
+  });
+
+  socket.on('offer', async ({desc, from}) => {
+    console.log('📨 Received offer from:', from);
+    try {
+      // Set the receiverId so ICE candidates can be sent to the correct peer
+      receiverId = from;
+      console.log('✅ Set receiverId to:', receiverId);
+      sendPendingIceCandidates(); // Send any ICE candidates that were generated early
+      
+      console.log('📄 Setting remote description...');
+      await pc.setRemoteDescription(desc);
+      console.log('✅ Remote description set successfully');
+      
+      console.log('📝 Creating answer...');
+      const answer = await pc.createAnswer();
+      
+      // Modify SDP to prefer compatible codecs
+      answer.sdp = preferCompatibleCodecs(answer.sdp);
+      
+      await pc.setLocalDescription(answer);
+      console.log('✅ Local description set successfully');
+      
+      socket.emit('answer', { to: from, desc: pc.localDescription });
+      console.log('📤 Sent answer to:', from);
+      
+      // Update status
+      const status = document.getElementById('status');
+      status.innerHTML = '🔄 WebRTC negotiation complete, establishing connection...';
+      
+    } catch (error) {
+      console.error('❌ Failed to handle offer:', error);
+      const status = document.getElementById('status');
+      status.innerHTML = '❌ Failed to process connection: ' + error.message;
+      status.className = 'error';
+    }
+  });
+  
+  socket.on('answer', async ({desc}) => {
+    console.log('📨 Received answer');
+    try {
+      await pc.setRemoteDescription(desc);
+      console.log('✅ Remote description set successfully');
+    } catch (error) {
+      console.error('❌ Failed to set remote description:', error);
+    }
+  });
+  
+  socket.on('ice-candidate', async ({candidate}) => {
+    console.log('🧊 Received ICE candidate');
+    try {
+      await pc.addIceCandidate(candidate);
+    } catch (error) {
+      console.error('❌ ICE candidate error:', error);
+    }
+  });
+
+  async function createOffer(targetId) {
+    if (!localStream) {
+      console.log('⚠️ No local stream available for offer');
+      return;
+    }
+    
+    try {
+      console.log('📤 Creating offer for:', targetId);
+      
+      const offerOptions = {
+        offerToReceiveVideo: false,
+        offerToReceiveAudio: false
+      };
+      
+      const offer = await pc.createOffer(offerOptions);
+      
+      // Modify SDP to prefer compatible codecs
+      offer.sdp = preferCompatibleCodecs(offer.sdp);
+      
+      await pc.setLocalDescription(offer);
+      socket.emit('offer', { room, desc: pc.localDescription, to: targetId });
+      console.log('✅ Offer sent successfully');
+      
+      const status = document.getElementById('status');
+      status.innerHTML = '📡 Connecting to laptop...';
+      status.className = '';
+      
+    } catch (error) {
+      console.error('❌ Failed to create offer:', error);
+      const status = document.getElementById('status');
+      status.innerHTML = '❌ Connection failed: ' + error.message;
+      status.className = 'error';
+    }
+  }
+
+  // WebRTC event handlers
+  pc.onicecandidate = e => {
+    console.log('🧊 ICE candidate event triggered!', e);
+    console.log('🧊 Current receiverId:', receiverId);
+    console.log('🧊 ICE gathering state:', pc.iceGatheringState);
+    console.log('🧊 ICE connection state:', pc.iceConnectionState);
+    if (e.candidate) {
+      console.log('🧊 Generated ICE candidate:', e.candidate.type, 'receiverId:', receiverId);
+      console.log('🧊 Full candidate:', e.candidate);
+      if (receiverId) {
+        console.log('✅ Sending ICE candidate to receiver:', receiverId);
+        socket.emit('ice-candidate', { to: receiverId, candidate: e.candidate, room: room });
+      } else {
+        console.log('⏳ Storing ICE candidate for later (receiverId not yet set)');
+        pendingIceCandidates.push(e.candidate);
+      }
+    } else {
+      console.log('🧊 ICE gathering complete (null candidate)');
+    }
+  };
+
+  // Enhanced ICE gathering state monitoring
+  pc.onicegatheringstatechange = () => {
+    console.log('📡 ICE gathering state changed:', pc.iceGatheringState);
+    if (pc.iceGatheringState === 'complete') {
+      console.log('✅ ICE gathering completed');
+    } else if (pc.iceGatheringState === 'gathering') {
+      console.log('⏳ ICE gathering in progress...');
+    }
+    
+    // Force ICE restart if no candidates after 3 seconds
+    if (pc.iceGatheringState === 'complete' && pendingIceCandidates.length === 0) {
+      console.log('⚠️ No ICE candidates generated - forcing restart...');
+      setTimeout(() => {
+        if (pendingIceCandidates.length === 0) {
+          console.log('🔄 Restarting ICE gathering...');
+          pc.restartIce();
+        }
+      }, 3000);
+    }
+  };
+
+  // Function to send pending ICE candidates when receiverId becomes available
+  function sendPendingIceCandidates() {
+    if (receiverId && pendingIceCandidates.length > 0) {
+      console.log('📤 Sending', pendingIceCandidates.length, 'pending ICE candidates to', receiverId);
+      pendingIceCandidates.forEach((candidate, index) => {
+        console.log('📤 Sending pending candidate', index + 1, ':', candidate.type);
+        socket.emit('ice-candidate', { to: receiverId, candidate: candidate, room: room });
+      });
+      pendingIceCandidates = []; // Clear the pending list
+    }
+  }
+
+  pc.onconnectionstatechange = () => {
+    console.log('🔗 Connection state:', pc.connectionState);
+    const status = document.getElementById('status');
+    
+    if (pc.connectionState === 'connected') {
+      status.innerHTML = '✅ Streaming to laptop successfully!';
+      status.className = 'success';
+    } else if (pc.connectionState === 'failed') {
+      status.innerHTML = '❌ Connection to laptop failed - retrying...';
+      status.className = 'error';
+      // Try to restart the connection
+      setTimeout(() => {
+        if (localStream && receiverId && pc.connectionState === 'failed') {
+          console.log('🔄 Attempting to reconnect...');
+          // Restart ICE to try again
+          pc.restartIce();
+          // Also signal that we're ready again
+          socket.emit('sender-ready', { room });
+        }
+      }, 2000);
+    } else if (pc.connectionState === 'connecting') {
+      status.innerHTML = '🔄 Connecting to laptop...';
+      status.className = '';
+    } else if (pc.connectionState === 'disconnected') {
+      status.innerHTML = '⚠️ Disconnected from laptop - reconnecting...';
+      status.className = 'warning';
+      // Try to reconnect
+      setTimeout(() => {
+        if (localStream && receiverId && pc.connectionState === 'disconnected') {
+          console.log('🔄 Attempting to reconnect after disconnect...');
+          socket.emit('sender-ready', { room });
+        }
+      }, 1000);
+    }
+  };
+
+  pc.oniceconnectionstatechange = () => {
+    console.log('🔗 SENDER ICE connection state changed:', pc.iceConnectionState);
+    console.log('🔗 ICE gathering state:', pc.iceGatheringState);
+    const status = document.getElementById('status');
+    if (pc.iceConnectionState === 'failed') {
+      status.innerHTML = '❌ Network connection failed - check WiFi/firewall';
+      status.className = 'error';
+    } else if (pc.iceConnectionState === 'connected') {
+      console.log('✅ ICE connected successfully');
+      status.innerHTML = '✅ Network connected - streaming active!';
+      status.className = 'success';
+    } else if (pc.iceConnectionState === 'checking') {
+      status.innerHTML = '🔍 Testing network connectivity...';
+      status.className = '';
+    } else if (pc.iceConnectionState === 'completed') {
+      console.log('✅ ICE connection completed');
+      status.innerHTML = '✅ Connection established successfully!';
+      status.className = 'success';
+    }
+  };
+  // Monitor ICE gathering state
+  pc.onicegatheringstatechange = () => {
+    console.log('🧊 ICE gathering state:', pc.iceGatheringState);
+    if (pc.iceGatheringState === 'gathering') {
+      const status = document.getElementById('status');
+      status.innerHTML = '🔍 Discovering network paths...';
+    } else if (pc.iceGatheringState === 'complete') {
+      console.log('🧊 ICE gathering complete');
+    }
+  };
+
+  </script>
+</body>
+</html>

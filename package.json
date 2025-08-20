@@ -1,0 +1,27 @@
+{
+  "name": "webrtc-vlm-demo",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start-mediasoup": "node mediasoup-server.js",
+    "start-https": "./start-servers.sh",
+    "bench": "node ./bench/bench.js",
+    "network-ip": "node get-network-ip.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "fs": "^0.0.1-security",
+    "https": "^1.0.0",
+    "mediasoup": "^3.18.0",
+    "minimist": "^1.2.8",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.7.2"
+    ,
+    "onnxruntime-node": "^1.18.0",
+    "@tensorflow/tfjs-node": "^4.16.0"
+  },
+  "devDependencies": {
+    "puppeteer": "^23.6.0"
+  }
+}
