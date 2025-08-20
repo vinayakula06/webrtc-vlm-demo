@@ -2,22 +2,6 @@
 
 **One-line goal:** Build a reproducible demo that performs real-time multi-object detection on live video streamed from a phone via WebRTC, returns detection bounding boxes + labels to the browser, overlays them in near real-time.
 
-## 🚀 Quick Start (One Command)
-
-```bash
-git clone https://github.com/Rohitk0102/webrtc-vlm-demo.git
-cd webrtc-vlm-demo
-./start.sh  # defaults to MODE=wasm (low-resource)
-# OR
-docker-compose up --build
-```
-
-Then:
-1. Open http://localhost:3443 on your laptop
-2. Scan the displayed QR code with your phone
-3. Allow camera access on phone
-4. Watch real-time object detection with overlays!
-
 ## 📱 Phone Connection Instructions
 
 **Requirements:** Only a web browser needed (Chrome on Android, Safari on iOS - no app installs)
